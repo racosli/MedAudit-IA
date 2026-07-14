@@ -1,0 +1,5 @@
+streamlit
+spacy
+pydantic
+langchain-core
+langchain-ollama
