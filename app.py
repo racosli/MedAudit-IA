@@ -62,10 +62,10 @@ import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI # Importação moderna do Gemini
 
 def analisar_prontuario(prontuario_texto: str) -> RelatorioAuditoria:
-    # 1. Pega a chave de API salva nos Secrets do Streamlit Cloud de forma segura
+    # 1. Pega a chave dos Secrets do Streamlit Cloud
     api_key = st.secrets["GEMINI_API_KEY"]
     
-    # 2. Inicializa o modelo da nuvem com saída estruturada em JSON
+    # 2. Inicializa o modelo da nuvem
     llm = ChatGoogleGenerativeAI(
         model="gemini-1.5-flash", 
         google_api_key=api_key,
