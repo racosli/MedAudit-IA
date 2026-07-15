@@ -234,15 +234,12 @@ if processar_botao:
             except Exception as e:
                 st.error(f"Erro ao processar a requisição: {e}")
             
-            if st.button("Analisar Prontuário"):
-                with st.spinner("Analisando prontuário com IA..."):
-            relatorio = analisar_prontuario(texto_do_prontuario)
-        
-        # VERIFICAÇÃO DE SEGURANÇA: Só exibe se o relatório não for None
-            if relatorio is not None:
-                st.success("🔍 Relatório de Auditoria Gerado!")
-            
-            # Aqui você pode acessar os atributos com segurança:
-                st.write(relatorio.alertas) 
-            else:
-                st.error("Não foi possível gerar o relatório. Verifique os erros de conexão acima.")
+        if st.button("Analisar Prontuário"):
+    # Tudo o que for rodar durante o carregamento precisa de 4 espaços extras
+                 with st.spinner("Analisando prontuário com IA..."):
+                     relatorio = analisar_prontuario(texto_do_prontuario)  
+                     if relatorio is not None:
+                        st.success("🔍 Relatório de Auditoria Gerado!")
+                        st.write(relatorio.alertas)
+                     else:
+                        st.error("Não foi possível gerar o relatório.")
