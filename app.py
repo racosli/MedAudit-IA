@@ -66,7 +66,15 @@ import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import ValidationError
 
+import os
+import streamlit as st
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import ValidationError
+
 def analisar_prontuario(prontuario_texto: str):
+    # Inicializa a variável como None para evitar qualquer NameError no retorno
+    resultado = None
+    
     # 1. Recupera a chave de API de forma segura
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
@@ -83,15 +91,20 @@ def analisar_prontuario(prontuario_texto: str):
         )
         
         # 3. Força a saída estruturada com o seu modelo Pydantic (RelatorioAuditoria)
-        # Usamos uma variável local segura para evitar NameError
         llm_com_estrutura = llm.with_structured_output(RelatorioAuditoria)
         
-        # 4. Cria a cadeia (prompt_auditoria precisa estar definido antes no seu código)
-        #cadeia_analise = prompt_auditoria | llm_com_estrutura
+        # 4. Cria a cadeia (certifique-se de que prompt_auditoria está definido no seu app.py)
+        cadeia_analise = prompt_auditoria | llm_com_estrutura
         
-        # 5. Executa a requisição passando as variáveis esperadas pelo seu PromptTemplate
-        #resultado = cadeia_analise.invoke({"prontuario": prontuario_texto})
-        return resultado
+        # 5. Executa a requisição
+        resultado = cadeia_analise.invoke({"prontuario": prontuario_texto})
+        
+    except ValidationError as val_err:
+        st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
+    except Exception as e:
+        st.error(f"Erro interno no processamento com o Gemini: {e}")
+        
+    return resultado
 
     except ValidationError as val_err:
         st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
