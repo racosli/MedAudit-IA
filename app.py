@@ -61,16 +61,44 @@ import os
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI # Importação moderna do Gemini
 
-def analisar_prontuario(prontuario_texto: str) -> RelatorioAuditoria:
-    # 1. Pega a chave dos Secrets do Streamlit Cloud
-    api_key = st.secrets["GEMINI_API_KEY"]
-    
-    # 2. Inicializa o modelo da nuvem
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash", 
-        google_api_key=api_key,
-        temperature=0.1
-    )
+import os
+import streamlit as st
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import ValidationError
+
+def analisar_prontuario(prontuario_texto: str):
+    # 1. Recupera a chave de API de forma segura
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+    except KeyError:
+        st.error("A chave 'GEMINI_API_KEY' não foi encontrada nos Secrets do Streamlit.")
+        return None
+
+    try:
+        # 2. Inicializa o modelo Gemini diretamente
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            google_api_key=api_key,
+            temperature=0.1
+        )
+        
+        # 3. Força a saída estruturada com o seu modelo Pydantic (RelatorioAuditoria)
+        # Usamos uma variável local segura para evitar NameError
+        llm_com_estrutura = llm.with_structured_output(RelatorioAuditoria)
+        
+        # 4. Cria a cadeia (prompt_auditoria precisa estar definido antes no seu código)
+        #cadeia_analise = prompt_auditoria | llm_com_estrutura
+        
+        # 5. Executa a requisição passando as variáveis esperadas pelo seu PromptTemplate
+        #resultado = cadeia_analise.invoke({"prontuario": prontuario_texto})
+        return resultado
+
+    except ValidationError as val_err:
+        st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
+        return None
+    except Exception as e:
+        st.error(f"Erro interno no processamento com o Gemini: {e}")
+        return None
     
     instrucoes_sistema = (
         "Você é um auditor médico altamente experiente e especialista em revisão de prontuários eletrônicos (PEP). "
