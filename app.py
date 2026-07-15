@@ -72,9 +72,13 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate # Garanta que esta importação existe no topo do arquivo
 from pydantic import ValidationError
 
+import streamlit as st
+from google import genai
+from google.genai import types
+from pydantic import ValidationError
+
 def analisar_prontuario(prontuario_texto: str):
     resultado = None
-    llm_estruturado = None
     
     # 1. Recupera a chave de API de forma segura
     try:
@@ -84,28 +88,28 @@ def analisar_prontuario(prontuario_texto: str):
         return None
 
     try:
-        # 2. Inicializa o modelo Gemini
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro",
-            api_key=api_key,
-            temperature=0.1
+        # 2. Inicializa o cliente oficial do Google GenAI
+        client = genai.Client(api_key=api_key)
+        
+        # 3. Define as instruções do sistema e o prompt do usuário
+        prompt_sistema = "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique inconformidades, glosas ou problemas de desidentificação."
+        prompt_usuario = f"Analise o seguinte prontuário:\n\n{prontuario_texto}"
+        
+        # 4. Faz a chamada forçando a saída estruturada no seu modelo Pydantic (RelatorioAuditoria)
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt_usuario,
+            config=types.GenerateContentConfig(
+                system_instruction=prompt_sistema,
+                temperature=0.1,
+                # Força a resposta a seguir exatamente a estrutura da classe Pydantic
+                response_mime_type="application/json",
+                response_schema=RelatorioAuditoria,
+            ),
         )
         
-        # 3. Força a saída estruturada com o seu modelo Pydantic
-        llm_estruturado = llm.with_structured_output(RelatorioAuditoria)
-        
-        # 4. DEFINE O PROMPT (Cole aqui a definição do seu prompt caso ele não esteja global)
-        # Exemplo de estrutura de prompt (ajuste os textos conforme as regras do seu negócio):
-        prompt_auditoria = ChatPromptTemplate.from_messages([
-            ("system", "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique inconformidades, glosas ou problemas de desidentificação."),
-            ("user", "{prontuario}")
-        ])
-        
-        # 5. Cria a cadeia com o prompt agora devidamente definido
-        cadeia_analise = prompt_auditoria | llm_estruturado
-        
-        # 6. Executa a requisição
-        resultado = chain_output = cadeia_analise.invoke({"prontuario": prontuario_texto})
+        # 5. O SDK oficial já valida e retorna o objeto estruturado se passar o schema
+        resultado = response.parsed
         
     except ValidationError as val_err:
         st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
