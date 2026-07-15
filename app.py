@@ -9,7 +9,7 @@ import os
 from typing import List
 from pydantic import BaseModel, Field
 #from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
+#from langchain_core.prompts import ChatPromptTemplate
 
 # =====================================================================
 # CONFIGURAÇÕES DA PÁGINA (Deve ser o primeiro comando Streamlit)
