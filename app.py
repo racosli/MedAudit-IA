@@ -57,12 +57,20 @@ class RelatorioAuditoria(BaseModel):
     alertas: List[AlertaClinico] = Field(description="Lista de todas as inconsistências identificadas")
     prontuario_corrigido: str = Field(description="O texto do prontuário totalmente reescrito e corrigido profissionalmente")
 
-from langchain_ollama import ChatOllama
+import os
+import streamlit as st
+from langchain_google_genai import ChatGoogleGenerativeAI # Importação moderna do Gemini
 
-def analisar_prontuario(prontuario_texto: str, api_key: str = None) -> RelatorioAuditoria:
-    # Inicializa o modelo local Llama 3 rodando na sua máquina
-    llm = ChatOllama(model="llama3", format="json", temperature=0.1)
-    llm_estruturado = llm.with_structured_output(RelatorioAuditoria)
+def analisar_prontuario(prontuario_texto: str) -> RelatorioAuditoria:
+    # 1. Pega a chave de API salva nos Secrets do Streamlit Cloud de forma segura
+    api_key = st.secrets["GEMINI_API_KEY"]
+    
+    # 2. Inicializa o modelo da nuvem com saída estruturada em JSON
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash", 
+        google_api_key=api_key,
+        temperature=0.1
+    )
     
     instrucoes_sistema = (
         "Você é um auditor médico altamente experiente e especialista em revisão de prontuários eletrônicos (PEP). "
