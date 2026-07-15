@@ -59,17 +59,12 @@ class RelatorioAuditoria(BaseModel):
 
 import os
 import streamlit as st
-from langchain_google_genai import ChatGoogleGenerativeAI # Importação moderna do Gemini
+#from langchain_google_genai import ChatGoogleGenerativeAI # Importação moderna do Gemini
 
 import os
 import streamlit as st
-from langchain_google_genai import ChatGoogleGenerativeAI
-from pydantic import ValidationError
-
-import os
-import streamlit as st
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate # Garanta que esta importação existe no topo do arquivo
+from google import genai
+from google.genai import types
 from pydantic import ValidationError
 
 import streamlit as st
