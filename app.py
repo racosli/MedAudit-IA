@@ -72,8 +72,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import ValidationError
 
 def analisar_prontuario(prontuario_texto: str):
-    # Inicializa a variável como None para evitar qualquer NameError no retorno
+    # Inicializa as variáveis como None para evitar qualquer NameError no fluxo
     resultado = None
+    llm_estruturado = None
     
     # 1. Recupera a chave de API de forma segura
     try:
@@ -83,34 +84,28 @@ def analisar_prontuario(prontuario_texto: str):
         return None
 
     try:
-        # Tudo dentro do try tem 4 espaços extras de recuo (indentação)
-        llm = ChatGoogleGenerativeAI(...)
-        ...
+        # 2. Inicializa o modelo Gemini garantindo parâmetros 100% nomeados
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            api_key=api_key,          # Usando 'api_key' como parâmetro nomeado padrão do LangChain moderno
+            temperature=0.1
+        )
+        
+        # 3. Força a saída estruturada com o seu modelo Pydantic (RelatorioAuditoria)
+        llm_estruturado = llm.with_structured_output(RelatorioAuditoria)
+        
+        # 4. Cria a cadeia (certifique-se de que prompt_auditoria está definido no seu escopo)
+        cadeia_analise = prompt_auditoria | llm_estruturado
+        
+        # 5. Executa a requisição
         resultado = cadeia_analise.invoke({"prontuario": prontuario_texto})
-    except ValidationError as val_err: # <--- EXATAMENTE NA MESMA COLUNA DO TRY
-        st.error(f"Erro de validação: {val_err}")
-    except Exception as e: # <--- EXATAMENTE NA MESMA COLUNA DO TRY
-        st.error(f"Erro: {e}")
-    
-    instrucoes_sistema = (
-        "Você é um auditor médico altamente experiente e especialista em revisão de prontuários eletrônicos (PEP). "
-        "Sua tarefa é analisar o prontuário fornecido e identificar erros graves como: "
-        "1. Inconsistências de dosagem de medicamentos. "
-        "2. Contradições clínicas. "
-        "3. Omissão de CIDs essenciais ou exames críticos. "
-        "4. Prescrição de alérgenos conhecidos. "
-        "5. Erros de terminologia médica. "
-        "Retorne a resposta estritamente no formato JSON estruturado solicitado."
-    )
-    
-    prompt_auditoria = ChatPromptTemplate.from_messages([
-        ("system", instrucoes_sistema),
-        ("user", "Por favor, analise e corrija o seguinte prontuário:\n\n{prontuario}")
-    ])
-    
-    cadeia = prompt_auditoria | llm_estruturado
-    return cadeia.invoke({"prontuario": prontuario_texto})
-
+        
+    except ValidationError as val_err:
+        st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
+    except Exception as e:
+        st.error(f"Erro interno no processamento com o Gemini: {e}")
+        
+    return resultado
 # =====================================================================
 # INTERFACE GRÁFICA (STREAMLIT)
 # =====================================================================
