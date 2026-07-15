@@ -73,14 +73,14 @@ from langchain_core.prompts import ChatPromptTemplate # Garanta que esta importa
 from pydantic import ValidationError
 
 import streamlit as st
-import google.generativeai as genai
-import json
+from google import genai
+from google.genai import types
 from pydantic import ValidationError
 
 def analisar_prontuario(prontuario_texto: str):
     resultado = None
     
-    # 1. Recupera a chave de API de forma segura
+    # 1. Recupera a chave de API dos Secrets do Streamlit
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
     except KeyError:
@@ -88,55 +88,35 @@ def analisar_prontuario(prontuario_texto: str):
         return None
 
     try:
-        # 2. Configura a biblioteca do Google
-        genai.configure(api_key=api_key)
+        # 2. Inicializa o cliente moderno da Google
+        client = genai.Client(api_key=api_key)
         
-        # 3. Inicializa o modelo básico (usamos o gemini-pro que tem suporte universal)
-        # Removemos o "response_schema" daqui para evitar quebras em SDKs antigos
-        model = genai.GenerativeModel(
-            model_name="gemini-pro",
-            generation_config={
-                "temperature": 0.1
-            }
+        # 3. Define instruções de sistema e do usuário
+        prompt_sistema = (
+            "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique "
+            "inconformidades, glosas ou problemas de desidentificação."
+        )
+        prompt_usuario = f"Analise o seguinte prontuário:\n\n{prontuario_texto}"
+        
+        # 4. Executa a requisição usando o modelo ativo (gemini-2.5-flash) com saída estruturada
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',  # Caso sua região use o intermediário, tente 'gemini-2.0-flash'
+            contents=prompt_usuario,
+            config=types.GenerateContentConfig(
+                system_instruction=prompt_sistema,
+                temperature=0.1,
+                response_mime_type="application/json",
+                response_schema=RelatorioAuditoria,
+            ),
         )
         
-        # 4. Forçamos a instrução de formato diretamente no prompt
-        prompt = f"""
-Você é um auditor médico especialista. Analise o prontuário fornecido e identifique inconformidades, glosas ou problemas de desidentificação.
-
-Retorne a sua resposta estritamente como um objeto JSON que siga exatamente a seguinte estrutura:
-{RelatorioAuditoria.model_json_schema()}
-
-Certifique-se de retornar APENAS o JSON puro, sem formatações de markdown como ```json ou textos adicionais antes ou depois.
-
-Prontuário para análise:
-{prontuario_texto}
-"""
-        
-        # 5. Faz a chamada
-        response = model.generate_content(prompt)
-        
-        # 6. Limpa qualquer formatação markdown acidental (como blocos de código ```json)
-        texto_resposta = response.text.strip()
-        if texto_resposta.startswith("```"):
-            texto_resposta = texto_resposta.split("```")[1]
-            if texto_resposta.startswith("json"):
-                texto_resposta = texto_resposta[4:]
-        texto_resposta = texto_resposta.strip()
-        
-        # 7. Converte a resposta texto para o objeto Pydantic
-        resultado = RelatorioAuditoria.model_validate_json(texto_resposta)
+        # 5. O novo SDK faz o parse do JSON automaticamente para o seu modelo Pydantic
+        resultado = response.parsed
         
     except ValidationError as val_err:
-        st.error(f"Erro ao validar a estrutura de dados do relatório: {val_err}")
-        # Se falhar na validação Pydantic, tentamos mostrar o texto bruto para não perder a análise
-        try:
-            st.info("Mostrando resposta bruta devido a erro de validação:")
-            st.code(response.text)
-        except:
-            pass
+        st.error(f"Erro de validação na estrutura do relatório: {val_err}")
     except Exception as e:
-        st.error(f"Erro na conexão com o modelo Gemini: {e}")
+        st.error(f"Erro interno no processamento com o Gemini: {e}")
         
     return resultado
 # =====================================================================
