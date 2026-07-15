@@ -1,7 +1,5 @@
 streamlit
 spacy
 pydantic
-langchain-core
-langchain-google-genai>=1.0.8
+google-generativeai
 https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl
-google-genai

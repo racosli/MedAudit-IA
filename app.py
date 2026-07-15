@@ -73,8 +73,7 @@ from langchain_core.prompts import ChatPromptTemplate # Garanta que esta importa
 from pydantic import ValidationError
 
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from pydantic import ValidationError
 
 def analisar_prontuario(prontuario_texto: str):
@@ -88,28 +87,33 @@ def analisar_prontuario(prontuario_texto: str):
         return None
 
     try:
-        # 2. Inicializa o cliente oficial do Google GenAI
-        client = genai.Client(api_key=api_key)
+        # 2. Configura a biblioteca do Google
+        genai.configure(api_key=api_key)
         
-        # 3. Define as instruções do sistema e o prompt do usuário
-        prompt_sistema = "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique inconformidades, glosas ou problemas de desidentificação."
-        prompt_usuario = f"Analise o seguinte prontuário:\n\n{prontuario_texto}"
-        
-        # 4. Faz a chamada forçando a saída estruturada no seu modelo Pydantic (RelatorioAuditoria)
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt_usuario,
-            config=types.GenerateContentConfig(
-                system_instruction=prompt_sistema,
-                temperature=0.1,
-                # Força a resposta a seguir exatamente a estrutura da classe Pydantic
-                response_mime_type="application/json",
-                response_schema=RelatorioAuditoria,
-            ),
+        # 3. Inicializa o modelo Gemini
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config={
+                "temperature": 0.1,
+                # Força a resposta a vir estruturada em formato JSON válido para o seu modelo Pydantic
+                "response_mime_type": "application/json",
+                "response_schema": RelatorioAuditoria,
+            }
         )
         
-        # 5. O SDK oficial já valida e retorna o objeto estruturado se passar o schema
-        resultado = response.parsed
+        # 4. Define as instruções do sistema
+        prompt_sistema = (
+            "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique "
+            "inconformidades, glosas ou problemas de desidentificação."
+        )
+        
+        # 5. Faz a chamada diretamente
+        response = model.generate_content(
+            f"{prompt_sistema}\n\nAnalise o seguinte prontuário:\n{prontuario_texto}"
+        )
+        
+        # 6. Converte a resposta JSON diretamente para o objeto Pydantic
+        resultado = RelatorioAuditoria.model_validate_json(response.text)
         
     except ValidationError as val_err:
         st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
