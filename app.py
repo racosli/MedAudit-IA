@@ -83,35 +83,14 @@ def analisar_prontuario(prontuario_texto: str):
         return None
 
     try:
-        # 2. Inicializa o modelo Gemini diretamente
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            google_api_key=api_key,
-            temperature=0.1
-        )
-        
-        # 3. Força a saída estruturada com o seu modelo Pydantic (RelatorioAuditoria)
-        llm_com_estrutura = llm.with_structured_output(RelatorioAuditoria)
-        
-        # 4. Cria a cadeia (certifique-se de que prompt_auditoria está definido no seu app.py)
-        cadeia_analise = prompt_auditoria | llm_com_estrutura
-        
-        # 5. Executa a requisição
+        # Tudo dentro do try tem 4 espaços extras de recuo (indentação)
+        llm = ChatGoogleGenerativeAI(...)
+        ...
         resultado = cadeia_analise.invoke({"prontuario": prontuario_texto})
-        
-    except ValidationError as val_err:
-        st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
-    except Exception as e:
-        st.error(f"Erro interno no processamento com o Gemini: {e}")
-        
-    return resultado
-
-    except ValidationError as val_err:
-        st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
-        return None
-    except Exception as e:
-        st.error(f"Erro interno no processamento com o Gemini: {e}")
-        return None
+    except ValidationError as val_err: # <--- EXATAMENTE NA MESMA COLUNA DO TRY
+        st.error(f"Erro de validação: {val_err}")
+    except Exception as e: # <--- EXATAMENTE NA MESMA COLUNA DO TRY
+        st.error(f"Erro: {e}")
     
     instrucoes_sistema = (
         "Você é um auditor médico altamente experiente e especialista em revisão de prontuários eletrônicos (PEP). "
