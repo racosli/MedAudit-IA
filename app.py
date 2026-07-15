@@ -90,8 +90,13 @@ def analisar_prontuario(prontuario_texto: str):
         return None
         
     # 3. Lista de modelos em ordem de preferência (do mais atual para o estável)
-    modelos_para_tentar = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
-    
+# Modelos organizados por prioridade. Incluímos o '8b' para salvar a cota se o principal estourar!
+    modelos_para_tentar = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.5-flash-8b", # <--- Modelo leve com cota de uso geralmente mais folgada
+        "gemini-1.5-flash"
+    ]    
     prompt_sistema = (
         "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique "
         "inconformidades, glosas ou problemas de desidentificação."
