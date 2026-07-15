@@ -8,7 +8,7 @@ import spacy
 import os
 from typing import List
 from pydantic import BaseModel, Field
-from langchain_ollama import ChatOllama
+#from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 
 # =====================================================================
