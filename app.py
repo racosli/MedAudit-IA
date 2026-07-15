@@ -86,7 +86,7 @@ def analisar_prontuario(prontuario_texto: str):
     try:
         # 2. Inicializa o modelo Gemini
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="models/gemini-1.5-flash",
             api_key=api_key,
             temperature=0.1
         )
