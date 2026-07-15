@@ -80,43 +80,60 @@ from pydantic import ValidationError
 def analisar_prontuario(prontuario_texto: str):
     resultado = None
     
-    # 1. Recupera a chave de API dos Secrets do Streamlit
+    # 1. Recupera a chave de API de forma segura
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
     except KeyError:
         st.error("A chave 'GEMINI_API_KEY' não foi encontrada nos Secrets do Streamlit.")
         return None
 
+    # 2. Inicializa o cliente oficial da Google
     try:
-        # 2. Inicializa o cliente moderno da Google
         client = genai.Client(api_key=api_key)
-        
-        # 3. Define instruções de sistema e do usuário
-        prompt_sistema = (
-            "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique "
-            "inconformidades, glosas ou problemas de desidentificação."
-        )
-        prompt_usuario = f"Analise o seguinte prontuário:\n\n{prontuario_texto}"
-        
-        # 4. Executa a requisição usando o modelo ativo (gemini-2.5-flash) com saída estruturada
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',  # Caso sua região use o intermediário, tente 'gemini-2.0-flash'
-            contents=prompt_usuario,
-            config=types.GenerateContentConfig(
-                system_instruction=prompt_sistema,
-                temperature=0.1,
-                response_mime_type="application/json",
-                response_schema=RelatorioAuditoria,
-            ),
-        )
-        
-        # 5. O novo SDK faz o parse do JSON automaticamente para o seu modelo Pydantic
-        resultado = response.parsed
-        
-    except ValidationError as val_err:
-        st.error(f"Erro de validação na estrutura do relatório: {val_err}")
     except Exception as e:
-        st.error(f"Erro interno no processamento com o Gemini: {e}")
+        st.error(f"Erro ao inicializar o cliente Google GenAI: {e}")
+        return None
+        
+    # 3. Lista de modelos em ordem de preferência (do mais atual para o estável)
+    modelos_para_tentar = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    
+    prompt_sistema = (
+        "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique "
+        "inconformidades, glosas ou problemas de desidentificação."
+    )
+    prompt_usuario = f"Analise o seguinte prontuário:\n\n{prontuario_texto}"
+
+    # 4. Tenta executar a requisição varrendo a lista de modelos ativos
+    for nome_modelo in modelos_para_tentar:
+        try:
+            response = client.models.generate_content(
+                model=nome_modelo,
+                contents=prompt_usuario,
+                config=types.GenerateContentConfig(
+                    system_instruction=prompt_sistema,
+                    temperature=0.1,
+                    response_mime_type="application/json",
+                    response_schema=RelatorioAuditoria,
+                ),
+            )
+            
+            # Se a chamada funcionou, extrai o objeto estruturado e encerra o loop
+            resultado = response.parsed
+            break
+            
+        except ValidationError as val_err:
+            st.error(f"Erro de validação na estrutura do relatório usando {nome_modelo}: {val_err}")
+            break # Paramos aqui porque o modelo respondeu, o erro é apenas de validação de dados
+        except Exception as e:
+            # Se for erro de modelo inexistente, descontinuado ou 404, tenta o próximo da lista
+            if "404" in str(e) or "not found" in str(e).lower() or "no longer available" in str(e).lower():
+                continue
+            else:
+                st.error(f"Erro na requisição com {nome_modelo}: {e}")
+                break
+
+    if resultado is None:
+        st.error("Nenhum dos modelos do Gemini disponíveis pôde processar a requisição no momento.")
         
     return resultado
 # =====================================================================
