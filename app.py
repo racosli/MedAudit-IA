@@ -236,13 +236,13 @@ if processar_botao:
             
             if st.button("Analisar Prontuário"):
                 with st.spinner("Analisando prontuário com IA..."):
-                    relatorio = analisar_prontuario(texto_do_prontuario)
+            relatorio = analisar_prontuario(texto_do_prontuario)
         
         # VERIFICAÇÃO DE SEGURANÇA: Só exibe se o relatório não for None
             if relatorio is not None:
                 st.success("🔍 Relatório de Auditoria Gerado!")
             
             # Aqui você pode acessar os atributos com segurança:
-            st.write(relatorio.alertas) 
+                st.write(relatorio.alertas) 
             else:
                 st.error("Não foi possível gerar o relatório. Verifique os erros de conexão acima.")
