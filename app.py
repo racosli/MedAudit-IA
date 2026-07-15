@@ -69,10 +69,10 @@ from pydantic import ValidationError
 import os
 import streamlit as st
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate # Garanta que esta importação existe no topo do arquivo
 from pydantic import ValidationError
 
 def analisar_prontuario(prontuario_texto: str):
-    # Inicializa as variáveis como None para evitar qualquer NameError no fluxo
     resultado = None
     llm_estruturado = None
     
@@ -84,21 +84,28 @@ def analisar_prontuario(prontuario_texto: str):
         return None
 
     try:
-        # 2. Inicializa o modelo Gemini garantindo parâmetros 100% nomeados
+        # 2. Inicializa o modelo Gemini
         llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
-            api_key=api_key,          # Usando 'api_key' como parâmetro nomeado padrão do LangChain moderno
+            api_key=api_key,
             temperature=0.1
         )
         
-        # 3. Força a saída estruturada com o seu modelo Pydantic (RelatorioAuditoria)
+        # 3. Força a saída estruturada com o seu modelo Pydantic
         llm_estruturado = llm.with_structured_output(RelatorioAuditoria)
         
-        # 4. Cria a cadeia (certifique-se de que prompt_auditoria está definido no seu escopo)
+        # 4. DEFINE O PROMPT (Cole aqui a definição do seu prompt caso ele não esteja global)
+        # Exemplo de estrutura de prompt (ajuste os textos conforme as regras do seu negócio):
+        prompt_auditoria = ChatPromptTemplate.from_messages([
+            ("system", "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique inconformidades, glosas ou problemas de desidentificação."),
+            ("user", "{prontuario}")
+        ])
+        
+        # 5. Cria a cadeia com o prompt agora devidamente definido
         cadeia_analise = prompt_auditoria | llm_estruturado
         
-        # 5. Executa a requisição
-        resultado = cadeia_analise.invoke({"prontuario": prontuario_texto})
+        # 6. Executa a requisição
+        resultado = chain_output = cadeia_analise.invoke({"prontuario": prontuario_texto})
         
     except ValidationError as val_err:
         st.error(f"Erro de validação nos dados retornados pela IA: {val_err}")
@@ -226,3 +233,16 @@ if processar_botao:
                 
             except Exception as e:
                 st.error(f"Erro ao processar a requisição: {e}")
+            
+            if st.button("Analisar Prontuário"):
+                with st.spinner("Analisando prontuário com IA..."):
+                    relatorio = analisar_prontuario(texto_do_prontuario)
+        
+        # VERIFICAÇÃO DE SEGURANÇA: Só exibe se o relatório não for None
+            if relatorio is not None:
+                st.success("🔍 Relatório de Auditoria Gerado!")
+            
+            # Aqui você pode acessar os atributos com segurança:
+            st.write(relatorio.alertas) 
+            else:
+                st.error("Não foi possível gerar o relatório. Verifique os erros de conexão acima.")
