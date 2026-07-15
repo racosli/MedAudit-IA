@@ -74,6 +74,7 @@ from pydantic import ValidationError
 
 import streamlit as st
 import google.generativeai as genai
+import json
 from pydantic import ValidationError
 
 def analisar_prontuario(prontuario_texto: str):
@@ -86,49 +87,56 @@ def analisar_prontuario(prontuario_texto: str):
         st.error("A chave 'GEMINI_API_KEY' não foi encontrada nos Secrets do Streamlit.")
         return None
 
-    # 2. Configura a biblioteca do Google
-    genai.configure(api_key=api_key)
-    
-    # 3. Lista de modelos a tentar (se o flash falhar devido à versão antiga do SDK na nuvem, tentamos o pro clássico)
-    modelos_para_tentar = ["gemini-1.5-flash", "gemini-pro"]
-    
-    for nome_modelo in modelos_para_tentar:
-        try:
-            model = genai.GenerativeModel(
-                model_name=nome_modelo,
-                generation_config={
-                    "temperature": 0.1,
-                    "response_mime_type": "application/json",
-                    "response_schema": RelatorioAuditoria,
-                }
-            )
-            
-            prompt_sistema = (
-                "Você é um auditor médico especialista. Analise o prontuário fornecido e identifique "
-                "inconformidades, glosas ou problemas de desidentificação."
-            )
-            
-            response = model.generate_content(
-                f"{prompt_sistema}\n\nAnalise o seguinte prontuário:\n{prontuario_texto}"
-            )
-            
-            # Se chegou aqui com sucesso, valida e quebra o loop
-            resultado = RelatorioAuditoria.model_validate_json(response.text)
-            break
-            
-        except ValidationError as val_err:
-            st.error(f"Erro de validação nos dados retornados pelo modelo {nome_modelo}: {val_err}")
-            break # Erro de validação significa que o modelo respondeu, então não precisamos tentar outro
-        except Exception as e:
-            # Se for um erro de 404/modelo não encontrado, ele vai tentar o próximo modelo da lista
-            if "404" in str(e) or "not found" in str(e).lower():
-                continue
-            else:
-                st.error(f"Erro ao processar com {nome_modelo}: {e}")
-                break
+    try:
+        # 2. Configura a biblioteca do Google
+        genai.configure(api_key=api_key)
+        
+        # 3. Inicializa o modelo básico (usamos o gemini-pro que tem suporte universal)
+        # Removemos o "response_schema" daqui para evitar quebras em SDKs antigos
+        model = genai.GenerativeModel(
+            model_name="gemini-pro",
+            generation_config={
+                "temperature": 0.1
+            }
+        )
+        
+        # 4. Forçamos a instrução de formato diretamente no prompt
+        prompt = f"""
+Você é um auditor médico especialista. Analise o prontuário fornecido e identifique inconformidades, glosas ou problemas de desidentificação.
 
-    if resultado is None:
-        st.error("Falha ao inicializar os modelos disponíveis da API do Gemini. Verifique a versão do pacote no Streamlit.")
+Retorne a sua resposta estritamente como um objeto JSON que siga exatamente a seguinte estrutura:
+{RelatorioAuditoria.model_json_schema()}
+
+Certifique-se de retornar APENAS o JSON puro, sem formatações de markdown como ```json ou textos adicionais antes ou depois.
+
+Prontuário para análise:
+{prontuario_texto}
+"""
+        
+        # 5. Faz a chamada
+        response = model.generate_content(prompt)
+        
+        # 6. Limpa qualquer formatação markdown acidental (como blocos de código ```json)
+        texto_resposta = response.text.strip()
+        if texto_resposta.startswith("```"):
+            texto_resposta = texto_resposta.split("```")[1]
+            if texto_resposta.startswith("json"):
+                texto_resposta = texto_resposta[4:]
+        texto_resposta = texto_resposta.strip()
+        
+        # 7. Converte a resposta texto para o objeto Pydantic
+        resultado = RelatorioAuditoria.model_validate_json(texto_resposta)
+        
+    except ValidationError as val_err:
+        st.error(f"Erro ao validar a estrutura de dados do relatório: {val_err}")
+        # Se falhar na validação Pydantic, tentamos mostrar o texto bruto para não perder a análise
+        try:
+            st.info("Mostrando resposta bruta devido a erro de validação:")
+            st.code(response.text)
+        except:
+            pass
+    except Exception as e:
+        st.error(f"Erro na conexão com o modelo Gemini: {e}")
         
     return resultado
 # =====================================================================
